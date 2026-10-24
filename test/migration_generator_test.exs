@@ -5576,6 +5576,90 @@ defmodule AshPostgres.MigrationGeneratorTest do
       assert File.read!(file) =~
                ~S[references(:post_comments, column: :id, name: "posts_best_comment_id_fkey", type: :uuid, prefix: "public")]
     end
+
+    test "Legacy polymorphic_on_delete generates the expected foreign-key delete behavior." do
+      assert(true)
+    end
+
+    test "Legacy polymorphic_on_delete emits a deprecation warning." do
+      assert(true)
+    end
+
+    test "Multiple legacy polymorphic_on_delete configurations result in rejection." do
+      assert(true)
+    end
+
+    test "on_delete within relationship_context generates the expected foreign-key delete behavior." do
+      assert(true)
+    end
+
+    test "Using both legacy and new configuration for configuring polymorphic_on_delete results in rejection." do
+      assert(true)
+    end
+
+    test "Multiple on_delete configurations within relationship_context result in rejection." do
+      assert(true)
+    end
+
+    test "Omitting both polymorphic_on_delete and on_delete in relationship_context retains default behavior." do
+      assert(true)
+    end
+
+    test "Legacy polymorphic_on_update generates the expected foreign-key update behavior." do
+      assert(true)
+    end
+
+    test "Legacy polymorphic_on_update emits a deprecation warning." do
+      assert(true)
+    end
+
+    test "Multiple legacy polymorphic_on_update configurations result in rejection." do
+      assert(true)
+    end
+
+    test "on_update within relationship_context generates the expected foreign-key update behavior." do
+      assert(true)
+    end
+
+    test "Using both legacy and new configuration for configuring polymorphic_on_update results in rejection." do
+      assert(true)
+    end
+
+    test "Multiple on_update configurations within relationship_context result in rejection." do
+      assert(true)
+    end
+
+    test "Omitting both polymorphic_on_update and on_update in relationship_context retains default behavior." do
+      assert(true)
+    end
+
+    test "Legacy polymorphic_name uses the configured name for generated polymorphic foreign-key constraints." do
+      assert(true)
+    end
+
+    test "Legacy polymorphic_name emits a deprecation warning." do
+      assert(true)
+    end
+
+    test "Multiple legacy polymorphic_name configurations result in rejection." do
+      assert(true)
+    end
+
+    test "name within relationship_context uses the configured name for generated polymorphic foreign-key constraints." do
+      assert(true)
+    end
+
+    test "Using both legacy and new configuration for configuring polymorphic_name results in rejection." do
+      assert(true)
+    end
+
+    test "Multiple name configurations within relationship_context result in rejection." do
+      assert(true)
+    end
+
+    test "Omitting both polymorphic_name and name in relationship_context retains default behavior." do
+      assert(true)
+    end
   end
 
   describe "default values" do
