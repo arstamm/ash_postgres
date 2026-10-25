@@ -5577,8 +5577,84 @@ defmodule AshPostgres.MigrationGeneratorTest do
                ~S[references(:post_comments, column: :id, name: "posts_best_comment_id_fkey", type: :uuid, prefix: "public")]
     end
 
-    test "Legacy polymorphic_on_delete generates the expected foreign-key delete behavior." do
-      assert(true)
+    test "Legacy polymorphic_on_delete generates the expected foreign-key delete behavior.", %{
+      snapshot_path: snapshot_path,
+      migration_path: migration_path
+    } do
+
+      defresource LegacyPolymorphicComment do
+        postgres do
+          polymorphic?(true)
+          repo(AshPostgres.TestRepo)
+        end
+
+        attributes do
+          uuid_primary_key(:id)
+          attribute(:resource_id, :uuid, public?: true)
+        end
+
+        actions do
+          defaults([:create, :read, :update, :destroy])
+        end
+      end
+
+      defresource LegacyPolymorphicPost do
+        postgres do
+          table "legacy_polymorphic_posts"
+          repo(AshPostgres.TestRepo)
+
+          references do
+            polymorphic_on_delete(:delete)
+          end
+        end
+
+        attributes do
+          uuid_primary_key(:id)
+        end
+
+        actions do
+          defaults([:create, :read, :update, :destroy])
+        end
+
+        relationships do
+          has_many(:comments, LegacyPolymorphicComment,
+            public?: true,
+            destination_attribute: :resource_id,
+            relationship_context: %{data_layer: %{table: "legacy_post_comments"}}
+          )
+        end
+      end
+
+      Code.compiler_options(ignore_module_conflict: true)
+
+      defmodule LegacyPolymorphicDomain do
+        use Ash.Domain
+
+        resources do
+          resource(LegacyPolymorphicPost)
+          resource(LegacyPolymorphicComment)
+        end
+      end
+
+      Code.compiler_options(ignore_module_conflict: false)
+
+      legacy_snapshot_path = Path.join(snapshot_path, "legacy_polymorphic")
+      legacy_migration_path = Path.join(migration_path, "legacy_polymorphic")
+
+      AshPostgres.MigrationGenerator.generate(LegacyPolymorphicDomain,
+        snapshot_path: legacy_snapshot_path,
+        migration_path: legacy_migration_path,
+        quiet: true,
+        format: false,
+        auto_name: true
+      )
+
+      assert [file] =
+               Path.wildcard("#{legacy_migration_path}/**/*_migrate_resources*.exs")
+               |> Enum.reject(&String.contains?(&1, "extensions"))
+
+      assert File.read!(file) =~
+               ~S[references(:legacy_polymorphic_posts, column: :id, name: "legacy_post_comments_resource_id_fkey", type: :uuid, on_delete: :delete_all)]
     end
 
     test "Legacy polymorphic_on_delete emits a deprecation warning." do
