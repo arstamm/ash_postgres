@@ -5848,8 +5848,83 @@ defmodule AshPostgres.MigrationGeneratorTest do
     # polymorphic_name tests #
     ##########################
 
-    test "Legacy polymorphic_name uses the configured name for generated polymorphic foreign-key constraints." do
-      assert(true)
+    test "Legacy polymorphic_name uses the configured name for generated polymorphic foreign-key constraints.", %{
+      snapshot_path: snapshot_path,
+      migration_path: migration_path
+    } do
+      defresource LegacyPolymorphicNameComment do
+        postgres do
+          polymorphic?(true)
+          repo(AshPostgres.TestRepo)
+        end
+
+        attributes do
+          uuid_primary_key(:id)
+          attribute(:resource_id, :uuid, public?: true)
+        end
+
+        actions do
+          defaults([:create, :read, :update, :destroy])
+        end
+      end
+
+      defresource LegacyPolymorphicNamePost do
+        postgres do
+          table "legacy_polymorphic_name_posts"
+          repo(AshPostgres.TestRepo)
+
+          references do
+            polymorphic_name("custom_polymorphic_name_fkey")
+          end
+        end
+
+        attributes do
+          uuid_primary_key(:id)
+        end
+
+        actions do
+          defaults([:create, :read, :update, :destroy])
+        end
+
+        relationships do
+          has_many(:comments, LegacyPolymorphicNameComment,
+            public?: true,
+            destination_attribute: :resource_id,
+            relationship_context: %{data_layer: %{table: "legacy_polymorphic_name_comments"}}
+          )
+        end
+      end
+
+      Code.compiler_options(ignore_module_conflict: true)
+
+      defmodule LegacyPolymorphicNameDomain do
+        use Ash.Domain
+
+        resources do
+          resource(LegacyPolymorphicNamePost)
+          resource(LegacyPolymorphicNameComment)
+        end
+      end
+
+      Code.compiler_options(ignore_module_conflict: false)
+
+      legacy_snapshot_path = Path.join(snapshot_path, "legacy_polymorphic_name")
+      legacy_migration_path = Path.join(migration_path, "legacy_polymorphic_name")
+
+      AshPostgres.MigrationGenerator.generate(LegacyPolymorphicNameDomain,
+        snapshot_path: legacy_snapshot_path,
+        migration_path: legacy_migration_path,
+        quiet: true,
+        format: false,
+        auto_name: true
+      )
+
+      assert [file] =
+               Path.wildcard("#{legacy_migration_path}/**/*_migrate_resources*.exs")
+               |> Enum.reject(&String.contains?(&1, "extensions"))
+
+      assert File.read!(file) =~
+               ~r/references\(:legacy_polymorphic_name_posts\b[^)]*name: "custom_polymorphic_name_fkey"/
     end
 
     test "Legacy polymorphic_name emits a deprecation warning." do
