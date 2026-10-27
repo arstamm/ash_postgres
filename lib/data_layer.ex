@@ -238,6 +238,14 @@ defmodule AshPostgres.DataLayer do
 
   @references %Spark.Dsl.Section{
     name: :references,
+    deprecations: [
+      polymorphic_on_delete:
+        "Use `relationship_context: %{data_layer: %{references: %{on_delete: ...}}}` on the relationship instead.",
+      polymorphic_on_update:
+        "Use `relationship_context: %{data_layer: %{references: %{on_update: ...}}}` on the relationship instead.",
+      polymorphic_name:
+        "Use `relationship_context: %{data_layer: %{references: %{name: ...}}}` on the relationship instead."
+    ],
     describe: """
     A section for configuring the references (foreign keys) in resource migrations.
 
