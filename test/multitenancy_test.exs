@@ -5,6 +5,7 @@
 defmodule AshPostgres.Test.MultitenancyTest do
   use AshPostgres.RepoCase, async: false
 
+  require Ash.Expr
   require Ash.Query
 
   alias AshPostgres.MultitenancyTest.{
@@ -13,6 +14,7 @@ defmodule AshPostgres.Test.MultitenancyTest do
     NonMultitenantPostMultitenantLink,
     Org,
     Post,
+    TenantPostLink,
     User
   }
 
@@ -300,6 +302,105 @@ defmodule AshPostgres.Test.MultitenancyTest do
 
     post
     |> Ash.load!([:linked_non_multitenant_posts_through_multitenant_link], tenant: org1)
+  end
+
+  test "loading across an attribute multitenant join resource only follows the tenant's links",
+       %{org1: org1, org2: org2} do
+    [source, linked, other] =
+      for title <- ["source", "linked", "other"] do
+        GlobalPost
+        |> Ash.Changeset.for_create(:create, %{title: title})
+        |> Ash.create!()
+      end
+
+    for {org, dest} <- [{org1, linked}, {org2, other}] do
+      TenantPostLink
+      |> Ash.Changeset.for_create(:create, %{source_id: source.id, dest_id: dest.id}, tenant: org)
+      |> Ash.create!()
+    end
+
+    source =
+      Ash.load!(source, [:tenant_linked_posts, :tenant_linked_posts_through], tenant: org1)
+
+    assert Enum.map(source.tenant_linked_posts, & &1.title) == ["linked"]
+    assert Enum.map(source.tenant_linked_posts_through, & &1.title) == ["linked"]
+  end
+
+  test "a skipped upsert returns the record in the caller's tenant", %{org1: org1, org2: org2} do
+    [source, dest] =
+      for title <- ["source", "dest"] do
+        GlobalPost
+        |> Ash.Changeset.for_create(:create, %{title: title})
+        |> Ash.create!()
+      end
+
+    input = %{source_id: source.id, dest_id: dest.id}
+
+    for org <- [org1, org2] do
+      TenantPostLink
+      |> Ash.Changeset.for_create(:create, input, tenant: org)
+      |> Ash.create!()
+    end
+
+    upsert_opts = [
+      upsert?: true,
+      upsert_identity: :unique_link,
+      upsert_fields: [:dest_id],
+      upsert_condition: Ash.Expr.expr(false),
+      return_skipped_upsert?: true,
+      tenant: org1
+    ]
+
+    assert %Ash.BulkResult{records: [record]} =
+             Ash.bulk_create(
+               [input],
+               TenantPostLink,
+               :create,
+               upsert_opts ++ [return_records?: true, return_errors?: true]
+             )
+
+    assert record.org_id == org1.id
+
+    assert Ash.create!(TenantPostLink, input, upsert_opts).org_id == org1.id
+  end
+
+  test "an upsert on the primary key doesn't update or return a record in another tenant", %{
+    org1: org1,
+    org2: org2
+  } do
+    user = Ash.create!(User, %{name: "theirs"}, tenant: tenant(org2))
+
+    assert {:error, %Ash.Error.Invalid{errors: [%Ash.Error.Changes.StaleRecord{}]}} =
+             Ash.create(User, %{id: user.id, name: "hello"}, upsert?: true, tenant: tenant(org1))
+
+    for opts <- [
+          [upsert_fields: [:name]],
+          [upsert_fields: :replace_all],
+          [upsert_fields: [:name], return_skipped_upsert?: true]
+        ] do
+      upsert_opts = [upsert?: true, tenant: tenant(org1)] ++ opts
+
+      assert {:error, %Ash.Error.Invalid{errors: [%Ash.Error.Changes.StaleRecord{}]}} =
+               Ash.create(User, %{id: user.id, name: "hello"}, upsert_opts)
+
+      assert %Ash.BulkResult{records: []} =
+               Ash.bulk_create(
+                 [%{id: user.id, name: "hello"}],
+                 User,
+                 :create,
+                 upsert_opts ++ [return_records?: true, return_errors?: true]
+               )
+    end
+
+    assert %{name: "theirs", org_id: org_id} = Ash.get!(User, user.id, tenant: tenant(org2))
+    assert org_id == org2.id
+
+    assert %{name: "hello"} =
+             Ash.create!(User, %{id: user.id, name: "hello"},
+               upsert?: true,
+               upsert_fields: [:name],
+               tenant: tenant(org2)
+             )
   end
 
   test "manage_relationship from context multitenant resource to attribute multitenant resource doesn't raise an error" do
