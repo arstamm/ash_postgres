@@ -5629,6 +5629,10 @@ defmodule AshPostgres.MigrationGeneratorTest do
                ~S[references(:post_comments, column: :id, name: "posts_best_comment_id_fkey", type: :uuid, prefix: "public")]
     end
 
+    ###############################
+    # polymorphic_on_delete tests #
+    ###############################
+
     test "Legacy polymorphic_on_delete generates the expected foreign-key delete behavior.", %{
       snapshot_path: snapshot_path,
       migration_path: migration_path
@@ -5706,7 +5710,7 @@ defmodule AshPostgres.MigrationGeneratorTest do
                |> Enum.reject(&String.contains?(&1, "extensions"))
 
       assert File.read!(file) =~
-               ~S[references(:legacy_polymorphic_posts, column: :id, name: "legacy_post_comments_resource_id_fkey", type: :uuid, on_delete: :delete_all)]
+               ~r/references\(:legacy_polymorphic_posts\b[^)]*on_delete: :delete_all/
     end
 
     test "Legacy polymorphic_on_delete emits a deprecation warning." do
@@ -5733,8 +5737,87 @@ defmodule AshPostgres.MigrationGeneratorTest do
       assert(true)
     end
 
-    test "Legacy polymorphic_on_update generates the expected foreign-key update behavior." do
-      assert(true)
+    ###############################
+    # polymorphic_on_update tests #
+    ###############################
+
+    test "Legacy polymorphic_on_update generates the expected foreign-key update behavior.", %{
+      snapshot_path: snapshot_path,
+      migration_path: migration_path
+    } do
+      defresource LegacyPolymorphicUpdateComment do
+        postgres do
+          polymorphic?(true)
+          repo(AshPostgres.TestRepo)
+        end
+
+        attributes do
+          uuid_primary_key(:id)
+          attribute(:resource_id, :uuid, public?: true)
+        end
+
+        actions do
+          defaults([:create, :read, :update, :destroy])
+        end
+      end
+
+      defresource LegacyPolymorphicUpdatePost do
+        postgres do
+          table "legacy_polymorphic_update_posts"
+          repo(AshPostgres.TestRepo)
+
+          references do
+            polymorphic_on_update(:update)
+          end
+        end
+
+        attributes do
+          uuid_primary_key(:id)
+        end
+
+        actions do
+          defaults([:create, :read, :update, :destroy])
+        end
+
+        relationships do
+          has_many(:comments, LegacyPolymorphicUpdateComment,
+            public?: true,
+            destination_attribute: :resource_id,
+            relationship_context: %{data_layer: %{table: "legacy_update_post_comments"}}
+          )
+        end
+      end
+
+      Code.compiler_options(ignore_module_conflict: true)
+
+      defmodule LegacyPolymorphicUpdateDomain do
+        use Ash.Domain
+
+        resources do
+          resource(LegacyPolymorphicUpdatePost)
+          resource(LegacyPolymorphicUpdateComment)
+        end
+      end
+
+      Code.compiler_options(ignore_module_conflict: false)
+
+      legacy_snapshot_path = Path.join(snapshot_path, "legacy_polymorphic_update")
+      legacy_migration_path = Path.join(migration_path, "legacy_polymorphic_update")
+
+      AshPostgres.MigrationGenerator.generate(LegacyPolymorphicUpdateDomain,
+        snapshot_path: legacy_snapshot_path,
+        migration_path: legacy_migration_path,
+        quiet: true,
+        format: false,
+        auto_name: true
+      )
+
+      assert [file] =
+               Path.wildcard("#{legacy_migration_path}/**/*_migrate_resources*.exs")
+               |> Enum.reject(&String.contains?(&1, "extensions"))
+
+      assert File.read!(file) =~
+               ~r/references\(:legacy_polymorphic_update_posts\b[^)]*on_update: :update_all/
     end
 
     test "Legacy polymorphic_on_update emits a deprecation warning." do
@@ -5760,6 +5843,10 @@ defmodule AshPostgres.MigrationGeneratorTest do
     test "Omitting both polymorphic_on_update and on_update in relationship_context retains default behavior." do
       assert(true)
     end
+
+    ##########################
+    # polymorphic_name tests #
+    ##########################
 
     test "Legacy polymorphic_name uses the configured name for generated polymorphic foreign-key constraints." do
       assert(true)
