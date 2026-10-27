@@ -5714,7 +5714,25 @@ defmodule AshPostgres.MigrationGeneratorTest do
     end
 
     test "Legacy polymorphic_on_delete emits a deprecation warning." do
-      assert(true)
+      warning =
+        ExUnit.CaptureIO.capture_io(:stderr, fn ->
+          defresource DeprecatedPolymorphicDeletePost do
+            postgres do
+              table "deprecated_polymorphic_delete_posts"
+              repo(AshPostgres.TestRepo)
+
+              references do
+                polymorphic_on_delete(:delete)
+              end
+            end
+
+            attributes do
+              uuid_primary_key(:id)
+            end
+          end
+        end)
+
+      assert warning =~ ~r/polymorphic_on_delete[^\n]*deprecated/i
     end
 
     test "Multiple legacy polymorphic_on_delete configurations result in rejection." do
@@ -5821,7 +5839,25 @@ defmodule AshPostgres.MigrationGeneratorTest do
     end
 
     test "Legacy polymorphic_on_update emits a deprecation warning." do
-      assert(true)
+      warning =
+        ExUnit.CaptureIO.capture_io(:stderr, fn ->
+          defresource DeprecatedPolymorphicUpdatePost do
+            postgres do
+              table "deprecated_polymorphic_update_posts"
+              repo(AshPostgres.TestRepo)
+
+              references do
+                polymorphic_on_update(:update)
+              end
+            end
+
+            attributes do
+              uuid_primary_key(:id)
+            end
+          end
+        end)
+
+      assert warning =~ ~r/polymorphic_on_update[^\n]*deprecated/i
     end
 
     test "Multiple legacy polymorphic_on_update configurations result in rejection." do
@@ -5928,7 +5964,25 @@ defmodule AshPostgres.MigrationGeneratorTest do
     end
 
     test "Legacy polymorphic_name emits a deprecation warning." do
-      assert(true)
+      warning =
+        ExUnit.CaptureIO.capture_io(:stderr, fn ->
+          defresource DeprecatedPolymorphicNamePost do
+            postgres do
+              table "deprecated_polymorphic_name_posts"
+              repo(AshPostgres.TestRepo)
+
+              references do
+                polymorphic_name("deprecated_polymorphic_name_fkey")
+              end
+            end
+
+            attributes do
+              uuid_primary_key(:id)
+            end
+          end
+        end)
+
+      assert warning =~ ~r/polymorphic_name[^\n]*deprecated/i
     end
 
     test "Multiple legacy polymorphic_name configurations result in rejection." do
