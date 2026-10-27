@@ -5733,6 +5733,8 @@ defmodule AshPostgres.MigrationGeneratorTest do
         end)
 
       assert warning =~ ~r/polymorphic_on_delete[^\n]*deprecated/i
+      assert warning =~
+               "Use `relationship_context: %{data_layer: %{references: %{on_delete: ...}}}` on the relationship instead."
     end
 
     test "Multiple legacy polymorphic_on_delete configurations result in rejection." do
@@ -5858,6 +5860,8 @@ defmodule AshPostgres.MigrationGeneratorTest do
         end)
 
       assert warning =~ ~r/polymorphic_on_update[^\n]*deprecated/i
+      assert warning =~
+               "Use `relationship_context: %{data_layer: %{references: %{on_update: ...}}}` on the relationship instead."
     end
 
     test "Multiple legacy polymorphic_on_update configurations result in rejection." do
@@ -5983,6 +5987,8 @@ defmodule AshPostgres.MigrationGeneratorTest do
         end)
 
       assert warning =~ ~r/polymorphic_name[^\n]*deprecated/i
+      assert warning =~
+               "Use `relationship_context: %{data_layer: %{references: %{name: ...}}}` on the relationship instead."
     end
 
     test "Multiple legacy polymorphic_name configurations result in rejection." do
