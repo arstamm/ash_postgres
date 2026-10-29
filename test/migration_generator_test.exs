@@ -5911,7 +5911,7 @@ defmodule AshPostgres.MigrationGeneratorTest do
                ~r/references\(:relationship_context_polymorphic_delete_posts\b[^)]*on_delete: :delete_all/
     end
 
-    test "Using both legacy and new configuration for configuring polymorphic_on_delete results in rejection.",
+    test "Configuring polymorphic_on_delete through both legacy and relationship-context options on one resource results in rejection.",
          %{
            snapshot_path: snapshot_path,
            migration_path: migration_path
@@ -5977,6 +5977,104 @@ defmodule AshPostgres.MigrationGeneratorTest do
         AshPostgres.MigrationGenerator.generate(LegacyAndNewPolymorphicDeleteDomain,
           snapshot_path: Path.join(snapshot_path, "legacy_and_new_polymorphic_delete"),
           migration_path: Path.join(migration_path, "legacy_and_new_polymorphic_delete"),
+          quiet: true,
+          format: false,
+          auto_name: true
+        )
+      end
+    end
+
+    test "Conflicting polymorphic_on_delete configurations across resources result in rejection.", %{
+      snapshot_path: snapshot_path,
+      migration_path: migration_path
+    } do
+      defresource CrossResourcePolymorphicDeleteComment do
+        postgres do
+          polymorphic?(true)
+          repo(AshPostgres.TestRepo)
+        end
+
+        attributes do
+          uuid_primary_key(:id)
+          attribute(:resource_id, :uuid, public?: true)
+        end
+
+        actions do
+          defaults([:create, :read, :update, :destroy])
+        end
+      end
+
+      defresource CrossResourceLegacyPolymorphicDeletePost do
+        postgres do
+          table "cross_resource_polymorphic_delete_posts"
+          repo(AshPostgres.TestRepo)
+
+          references do
+            polymorphic_on_delete(:delete)
+          end
+        end
+
+        attributes do
+          uuid_primary_key(:id)
+        end
+
+        actions do
+          defaults([:create, :read, :update, :destroy])
+        end
+
+        relationships do
+          has_many(:comments, CrossResourcePolymorphicDeleteComment,
+            public?: true,
+            destination_attribute: :resource_id,
+            relationship_context: %{
+              data_layer: %{table: "cross_resource_polymorphic_delete_comments"}
+            }
+          )
+        end
+      end
+
+      defresource CrossResourceRelationshipContextPolymorphicDeletePost do
+        postgres do
+          table "cross_resource_polymorphic_delete_posts"
+          repo(AshPostgres.TestRepo)
+        end
+
+        attributes do
+          uuid_primary_key(:id)
+        end
+
+        actions do
+          defaults([:create, :read, :update, :destroy])
+        end
+
+        relationships do
+          has_many(:comments, CrossResourcePolymorphicDeleteComment,
+            public?: true,
+            destination_attribute: :resource_id,
+            relationship_context: %{
+              data_layer: %{
+                table: "cross_resource_polymorphic_delete_comments",
+                references: %{on_delete: :nilify}
+              }
+            }
+          )
+        end
+      end
+
+      defmodule CrossResourcePolymorphicDeleteDomain do
+        use Ash.Domain
+
+        resources do
+          resource(CrossResourceLegacyPolymorphicDeletePost)
+          resource(CrossResourceRelationshipContextPolymorphicDeletePost)
+          resource(CrossResourcePolymorphicDeleteComment)
+        end
+      end
+
+      assert_raise RuntimeError, ~r/Conflicting configurations for references/, fn ->
+        AshPostgres.MigrationGenerator.generate(CrossResourcePolymorphicDeleteDomain,
+          snapshot_path: Path.join(snapshot_path, "cross_resource_polymorphic_delete"),
+          migration_path: Path.join(migration_path, "cross_resource_polymorphic_delete"),
           quiet: true,
           format: false,
           auto_name: true
