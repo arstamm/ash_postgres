@@ -5915,8 +5915,101 @@ defmodule AshPostgres.MigrationGeneratorTest do
       assert(true)
     end
 
-    test "Multiple on_delete configurations within relationship_context result in rejection." do
-      assert(true)
+    test "Multiple on_delete configurations within relationship_context result in rejection.", %{
+      snapshot_path: snapshot_path,
+      migration_path: migration_path
+    } do
+      defresource MultipleRelationshipContextPolymorphicDeleteComment do
+        postgres do
+          polymorphic?(true)
+          repo(AshPostgres.TestRepo)
+        end
+
+        attributes do
+          uuid_primary_key(:id)
+          attribute(:resource_id, :uuid, public?: true)
+        end
+
+        actions do
+          defaults([:create, :read, :update, :destroy])
+        end
+      end
+
+      defresource DeleteRelationshipContextPolymorphicDeletePost do
+        postgres do
+          table "multiple_relationship_context_polymorphic_delete_posts"
+          repo(AshPostgres.TestRepo)
+        end
+
+        attributes do
+          uuid_primary_key(:id)
+        end
+
+        actions do
+          defaults([:create, :read, :update, :destroy])
+        end
+
+        relationships do
+          has_many(:comments, MultipleRelationshipContextPolymorphicDeleteComment,
+            public?: true,
+            destination_attribute: :resource_id,
+            relationship_context: %{
+              data_layer: %{
+                table: "multiple_relationship_context_polymorphic_delete_comments",
+                references: %{on_delete: :delete}
+              }
+            }
+          )
+        end
+      end
+
+      defresource NilifyRelationshipContextPolymorphicDeletePost do
+        postgres do
+          table "multiple_relationship_context_polymorphic_delete_posts"
+          repo(AshPostgres.TestRepo)
+        end
+
+        attributes do
+          uuid_primary_key(:id)
+        end
+
+        actions do
+          defaults([:create, :read, :update, :destroy])
+        end
+
+        relationships do
+          has_many(:comments, MultipleRelationshipContextPolymorphicDeleteComment,
+            public?: true,
+            destination_attribute: :resource_id,
+            relationship_context: %{
+              data_layer: %{
+                table: "multiple_relationship_context_polymorphic_delete_comments",
+                references: %{on_delete: :nilify}
+              }
+            }
+          )
+        end
+      end
+
+      defmodule MultipleRelationshipContextPolymorphicDeleteDomain do
+        use Ash.Domain
+
+        resources do
+          resource(DeleteRelationshipContextPolymorphicDeletePost)
+          resource(NilifyRelationshipContextPolymorphicDeletePost)
+          resource(MultipleRelationshipContextPolymorphicDeleteComment)
+        end
+      end
+
+      assert_raise RuntimeError, ~r/Conflicting configurations for references/, fn ->
+        AshPostgres.MigrationGenerator.generate(MultipleRelationshipContextPolymorphicDeleteDomain,
+          snapshot_path: Path.join(snapshot_path, "multiple_relationship_context_polymorphic_delete"),
+          migration_path: Path.join(migration_path, "multiple_relationship_context_polymorphic_delete"),
+          quiet: true,
+          format: false,
+          auto_name: true
+        )
+      end
     end
 
     test "Omitting both polymorphic_on_delete and on_delete in relationship_context retains default behavior." do
