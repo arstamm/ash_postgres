@@ -3838,11 +3838,9 @@ defmodule AshPostgres.MigrationGenerator do
                 table: AshPostgres.DataLayer.Info.table(relationship.source),
                 schema: AshPostgres.DataLayer.Info.schema(relationship.source),
                 on_delete: polymorphic_on_delete(relationship),
-                on_update: AshPostgres.DataLayer.Info.polymorphic_on_update(relationship.source),
+                on_update: polymorphic_on_update(relationship),
                 primary_key?: source_attribute.primary_key?,
-                name:
-                  AshPostgres.DataLayer.Info.polymorphic_name(relationship.source) ||
-                    "#{relationship.context[:data_layer][:table]}_#{destination_attribute_source}_fkey"
+                name: polymorphic_name(relationship, destination_attribute_source)
               })
             else
               attribute
@@ -3858,6 +3856,17 @@ defmodule AshPostgres.MigrationGenerator do
   defp polymorphic_on_delete(relationship) do
     get_in(relationship.context, [:data_layer, :references, :on_delete]) ||
       AshPostgres.DataLayer.Info.polymorphic_on_delete(relationship.source)
+  end
+
+  defp polymorphic_on_update(relationship) do
+    get_in(relationship.context, [:data_layer, :references, :on_update]) ||
+      AshPostgres.DataLayer.Info.polymorphic_on_update(relationship.source)
+  end
+
+  defp polymorphic_name(relationship, destination_attribute_source) do
+    get_in(relationship.context, [:data_layer, :references, :name]) ||
+      AshPostgres.DataLayer.Info.polymorphic_name(relationship.source) ||
+      "#{relationship.context[:data_layer][:table]}_#{destination_attribute_source}_fkey"
   end
 
   defp do_snapshot(resource, table, schema \\ nil) do
