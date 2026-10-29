@@ -5836,8 +5836,79 @@ defmodule AshPostgres.MigrationGeneratorTest do
       end
     end
 
-    test "on_delete within relationship_context generates the expected foreign-key delete behavior." do
-      assert(true)
+    test "on_delete within relationship_context generates the expected foreign-key delete behavior.", %{
+      snapshot_path: snapshot_path,
+      migration_path: migration_path
+    } do
+      defresource RelationshipContextPolymorphicDeleteComment do
+        postgres do
+          polymorphic?(true)
+          repo(AshPostgres.TestRepo)
+        end
+
+        attributes do
+          uuid_primary_key(:id)
+          attribute(:resource_id, :uuid, public?: true)
+        end
+
+        actions do
+          defaults([:create, :read, :update, :destroy])
+        end
+      end
+
+      defresource RelationshipContextPolymorphicDeletePost do
+        postgres do
+          table "relationship_context_polymorphic_delete_posts"
+          repo(AshPostgres.TestRepo)
+        end
+
+        attributes do
+          uuid_primary_key(:id)
+        end
+
+        actions do
+          defaults([:create, :read, :update, :destroy])
+        end
+
+        relationships do
+          has_many(:comments, RelationshipContextPolymorphicDeleteComment,
+            public?: true,
+            destination_attribute: :resource_id,
+            relationship_context: %{
+              data_layer: %{
+                table: "relationship_context_polymorphic_delete_comments",
+                references: %{on_delete: :delete}
+              }
+            }
+          )
+        end
+      end
+
+      defmodule RelationshipContextPolymorphicDeleteDomain do
+        use Ash.Domain
+
+        resources do
+          resource(RelationshipContextPolymorphicDeletePost)
+          resource(RelationshipContextPolymorphicDeleteComment)
+        end
+      end
+
+      AshPostgres.MigrationGenerator.generate(RelationshipContextPolymorphicDeleteDomain,
+        snapshot_path: Path.join(snapshot_path, "relationship_context_polymorphic_delete"),
+        migration_path: Path.join(migration_path, "relationship_context_polymorphic_delete"),
+        quiet: true,
+        format: false,
+        auto_name: true
+      )
+
+      assert [file] =
+               Path.wildcard(
+                 "#{migration_path}/relationship_context_polymorphic_delete/**/*_migrate_resources*.exs"
+               )
+               |> Enum.reject(&String.contains?(&1, "extensions"))
+
+      assert File.read!(file) =~
+               ~r/references\(:relationship_context_polymorphic_delete_posts\b[^)]*on_delete: :delete_all/
     end
 
     test "Using both legacy and new configuration for configuring polymorphic_on_delete results in rejection." do
