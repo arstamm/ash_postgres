@@ -3837,7 +3837,7 @@ defmodule AshPostgres.MigrationGenerator do
                 multitenancy: multitenancy(relationship.source),
                 table: AshPostgres.DataLayer.Info.table(relationship.source),
                 schema: AshPostgres.DataLayer.Info.schema(relationship.source),
-                on_delete: AshPostgres.DataLayer.Info.polymorphic_on_delete(relationship.source),
+                on_delete: polymorphic_on_delete(relationship),
                 on_update: AshPostgres.DataLayer.Info.polymorphic_on_update(relationship.source),
                 primary_key?: source_attribute.primary_key?,
                 name:
@@ -3853,6 +3853,11 @@ defmodule AshPostgres.MigrationGenerator do
     else
       [do_snapshot(resource, AshPostgres.DataLayer.Info.table(resource))]
     end
+  end
+
+  defp polymorphic_on_delete(relationship) do
+    get_in(relationship.context, [:data_layer, :references, :on_delete]) ||
+      AshPostgres.DataLayer.Info.polymorphic_on_delete(relationship.source)
   end
 
   defp do_snapshot(resource, table, schema \\ nil) do
