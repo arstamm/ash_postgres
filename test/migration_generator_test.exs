@@ -6302,8 +6302,101 @@ defmodule AshPostgres.MigrationGeneratorTest do
       assert(true)
     end
 
-    test "Multiple on_update configurations within relationship_context result in rejection." do
-      assert(true)
+    test "Multiple on_update configurations within relationship_context result in rejection.", %{
+      snapshot_path: snapshot_path,
+      migration_path: migration_path
+    } do
+      defresource MultipleRelationshipContextPolymorphicUpdateComment do
+        postgres do
+          polymorphic?(true)
+          repo(AshPostgres.TestRepo)
+        end
+
+        attributes do
+          uuid_primary_key(:id)
+          attribute(:resource_id, :uuid, public?: true)
+        end
+
+        actions do
+          defaults([:create, :read, :update, :destroy])
+        end
+      end
+
+      defresource UpdateRelationshipContextPolymorphicUpdatePost do
+        postgres do
+          table "multiple_relationship_context_polymorphic_update_posts"
+          repo(AshPostgres.TestRepo)
+        end
+
+        attributes do
+          uuid_primary_key(:id)
+        end
+
+        actions do
+          defaults([:create, :read, :update, :destroy])
+        end
+
+        relationships do
+          has_many(:comments, MultipleRelationshipContextPolymorphicUpdateComment,
+            public?: true,
+            destination_attribute: :resource_id,
+            relationship_context: %{
+              data_layer: %{
+                table: "multiple_relationship_context_polymorphic_update_comments",
+                references: %{on_update: :update}
+              }
+            }
+          )
+        end
+      end
+
+      defresource RestrictRelationshipContextPolymorphicUpdatePost do
+        postgres do
+          table "multiple_relationship_context_polymorphic_update_posts"
+          repo(AshPostgres.TestRepo)
+        end
+
+        attributes do
+          uuid_primary_key(:id)
+        end
+
+        actions do
+          defaults([:create, :read, :update, :destroy])
+        end
+
+        relationships do
+          has_many(:comments, MultipleRelationshipContextPolymorphicUpdateComment,
+            public?: true,
+            destination_attribute: :resource_id,
+            relationship_context: %{
+              data_layer: %{
+                table: "multiple_relationship_context_polymorphic_update_comments",
+                references: %{on_update: :restrict}
+              }
+            }
+          )
+        end
+      end
+
+      defmodule MultipleRelationshipContextPolymorphicUpdateDomain do
+        use Ash.Domain
+
+        resources do
+          resource(UpdateRelationshipContextPolymorphicUpdatePost)
+          resource(RestrictRelationshipContextPolymorphicUpdatePost)
+          resource(MultipleRelationshipContextPolymorphicUpdateComment)
+        end
+      end
+
+      assert_raise RuntimeError, ~r/Conflicting configurations for references/, fn ->
+        AshPostgres.MigrationGenerator.generate(MultipleRelationshipContextPolymorphicUpdateDomain,
+          snapshot_path: Path.join(snapshot_path, "multiple_relationship_context_polymorphic_update"),
+          migration_path: Path.join(migration_path, "multiple_relationship_context_polymorphic_update"),
+          quiet: true,
+          format: false,
+          auto_name: true
+        )
+      end
     end
 
     test "Omitting both polymorphic_on_update and on_update in relationship_context retains default behavior." do
@@ -6596,8 +6689,101 @@ defmodule AshPostgres.MigrationGeneratorTest do
       assert(true)
     end
 
-    test "Multiple name configurations within relationship_context result in rejection." do
-      assert(true)
+    test "Multiple name configurations within relationship_context result in rejection.", %{
+      snapshot_path: snapshot_path,
+      migration_path: migration_path
+    } do
+      defresource MultipleRelationshipContextPolymorphicNameComment do
+        postgres do
+          polymorphic?(true)
+          repo(AshPostgres.TestRepo)
+        end
+
+        attributes do
+          uuid_primary_key(:id)
+          attribute(:resource_id, :uuid, public?: true)
+        end
+
+        actions do
+          defaults([:create, :read, :update, :destroy])
+        end
+      end
+
+      defresource FirstRelationshipContextPolymorphicNamePost do
+        postgres do
+          table "multiple_relationship_context_polymorphic_name_posts"
+          repo(AshPostgres.TestRepo)
+        end
+
+        attributes do
+          uuid_primary_key(:id)
+        end
+
+        actions do
+          defaults([:create, :read, :update, :destroy])
+        end
+
+        relationships do
+          has_many(:comments, MultipleRelationshipContextPolymorphicNameComment,
+            public?: true,
+            destination_attribute: :resource_id,
+            relationship_context: %{
+              data_layer: %{
+                table: "multiple_relationship_context_polymorphic_name_comments",
+                references: %{name: "first_polymorphic_name_fkey"}
+              }
+            }
+          )
+        end
+      end
+
+      defresource SecondRelationshipContextPolymorphicNamePost do
+        postgres do
+          table "multiple_relationship_context_polymorphic_name_posts"
+          repo(AshPostgres.TestRepo)
+        end
+
+        attributes do
+          uuid_primary_key(:id)
+        end
+
+        actions do
+          defaults([:create, :read, :update, :destroy])
+        end
+
+        relationships do
+          has_many(:comments, MultipleRelationshipContextPolymorphicNameComment,
+            public?: true,
+            destination_attribute: :resource_id,
+            relationship_context: %{
+              data_layer: %{
+                table: "multiple_relationship_context_polymorphic_name_comments",
+                references: %{name: "second_polymorphic_name_fkey"}
+              }
+            }
+          )
+        end
+      end
+
+      defmodule MultipleRelationshipContextPolymorphicNameDomain do
+        use Ash.Domain
+
+        resources do
+          resource(FirstRelationshipContextPolymorphicNamePost)
+          resource(SecondRelationshipContextPolymorphicNamePost)
+          resource(MultipleRelationshipContextPolymorphicNameComment)
+        end
+      end
+
+      assert_raise RuntimeError, ~r/Conflicting configurations for references/, fn ->
+        AshPostgres.MigrationGenerator.generate(MultipleRelationshipContextPolymorphicNameDomain,
+          snapshot_path: Path.join(snapshot_path, "multiple_relationship_context_polymorphic_name"),
+          migration_path: Path.join(migration_path, "multiple_relationship_context_polymorphic_name"),
+          quiet: true,
+          format: false,
+          auto_name: true
+        )
+      end
     end
 
     test "Omitting both polymorphic_name and name in relationship_context retains default behavior." do
