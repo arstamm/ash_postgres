@@ -6129,8 +6129,80 @@ defmodule AshPostgres.MigrationGeneratorTest do
       end
     end
 
-    test "on_update within relationship_context generates the expected foreign-key update behavior." do
-      assert(true)
+    test "on_update within relationship_context generates the expected foreign-key update behavior.",
+         %{
+           snapshot_path: snapshot_path,
+           migration_path: migration_path
+         } do
+      defresource RelationshipContextPolymorphicUpdateComment do
+        postgres do
+          polymorphic?(true)
+          repo(AshPostgres.TestRepo)
+        end
+
+        attributes do
+          uuid_primary_key(:id)
+          attribute(:resource_id, :uuid, public?: true)
+        end
+
+        actions do
+          defaults([:create, :read, :update, :destroy])
+        end
+      end
+
+      defresource RelationshipContextPolymorphicUpdatePost do
+        postgres do
+          table "relationship_context_polymorphic_update_posts"
+          repo(AshPostgres.TestRepo)
+        end
+
+        attributes do
+          uuid_primary_key(:id)
+        end
+
+        actions do
+          defaults([:create, :read, :update, :destroy])
+        end
+
+        relationships do
+          has_many(:comments, RelationshipContextPolymorphicUpdateComment,
+            public?: true,
+            destination_attribute: :resource_id,
+            relationship_context: %{
+              data_layer: %{
+                table: "relationship_context_polymorphic_update_comments",
+                references: %{on_update: :update}
+              }
+            }
+          )
+        end
+      end
+
+      defmodule RelationshipContextPolymorphicUpdateDomain do
+        use Ash.Domain
+
+        resources do
+          resource(RelationshipContextPolymorphicUpdatePost)
+          resource(RelationshipContextPolymorphicUpdateComment)
+        end
+      end
+
+      AshPostgres.MigrationGenerator.generate(RelationshipContextPolymorphicUpdateDomain,
+        snapshot_path: Path.join(snapshot_path, "relationship_context_polymorphic_update"),
+        migration_path: Path.join(migration_path, "relationship_context_polymorphic_update"),
+        quiet: true,
+        format: false,
+        auto_name: true
+      )
+
+      assert [file] =
+               Path.wildcard(
+                 "#{migration_path}/relationship_context_polymorphic_update/**/*_migrate_resources*.exs"
+               )
+               |> Enum.reject(&String.contains?(&1, "extensions"))
+
+      assert File.read!(file) =~
+               ~r/references\(:relationship_context_polymorphic_update_posts\b[^)]*on_update: :update_all/
     end
 
     test "Using both legacy and new configuration for configuring polymorphic_on_update results in rejection." do
@@ -6351,8 +6423,80 @@ defmodule AshPostgres.MigrationGeneratorTest do
       end
     end
 
-    test "name within relationship_context uses the configured name for generated polymorphic foreign-key constraints." do
-      assert(true)
+    test "name within relationship_context uses the configured name for generated polymorphic foreign-key constraints.",
+         %{
+           snapshot_path: snapshot_path,
+           migration_path: migration_path
+         } do
+      defresource RelationshipContextPolymorphicNameComment do
+        postgres do
+          polymorphic?(true)
+          repo(AshPostgres.TestRepo)
+        end
+
+        attributes do
+          uuid_primary_key(:id)
+          attribute(:resource_id, :uuid, public?: true)
+        end
+
+        actions do
+          defaults([:create, :read, :update, :destroy])
+        end
+      end
+
+      defresource RelationshipContextPolymorphicNamePost do
+        postgres do
+          table "relationship_context_polymorphic_name_posts"
+          repo(AshPostgres.TestRepo)
+        end
+
+        attributes do
+          uuid_primary_key(:id)
+        end
+
+        actions do
+          defaults([:create, :read, :update, :destroy])
+        end
+
+        relationships do
+          has_many(:comments, RelationshipContextPolymorphicNameComment,
+            public?: true,
+            destination_attribute: :resource_id,
+            relationship_context: %{
+              data_layer: %{
+                table: "relationship_context_polymorphic_name_comments",
+                references: %{name: "relationship_context_polymorphic_name_fkey"}
+              }
+            }
+          )
+        end
+      end
+
+      defmodule RelationshipContextPolymorphicNameDomain do
+        use Ash.Domain
+
+        resources do
+          resource(RelationshipContextPolymorphicNamePost)
+          resource(RelationshipContextPolymorphicNameComment)
+        end
+      end
+
+      AshPostgres.MigrationGenerator.generate(RelationshipContextPolymorphicNameDomain,
+        snapshot_path: Path.join(snapshot_path, "relationship_context_polymorphic_name"),
+        migration_path: Path.join(migration_path, "relationship_context_polymorphic_name"),
+        quiet: true,
+        format: false,
+        auto_name: true
+      )
+
+      assert [file] =
+               Path.wildcard(
+                 "#{migration_path}/relationship_context_polymorphic_name/**/*_migrate_resources*.exs"
+               )
+               |> Enum.reject(&String.contains?(&1, "extensions"))
+
+      assert File.read!(file) =~
+               ~r/references\(:relationship_context_polymorphic_name_posts\b[^)]*name: "relationship_context_polymorphic_name_fkey"/
     end
 
     test "Using both legacy and new configuration for configuring polymorphic_name results in rejection." do
