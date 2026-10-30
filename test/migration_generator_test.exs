@@ -6806,8 +6806,81 @@ defmodule AshPostgres.MigrationGeneratorTest do
       end
     end
 
-    test "Omitting both polymorphic_on_update and on_update in relationship_context retains default behavior." do
-      assert(true)
+    test "Omitting both polymorphic_on_update and on_update in relationship_context retains default behavior.", %{
+      snapshot_path: snapshot_path,
+      migration_path: migration_path
+    } do
+      defresource DefaultPolymorphicUpdateComment do
+        postgres do
+          polymorphic?(true)
+          repo(AshPostgres.TestRepo)
+        end
+
+        attributes do
+          uuid_primary_key(:id)
+          attribute(:resource_id, :uuid, public?: true)
+        end
+
+        actions do
+          defaults([:create, :read, :update, :destroy])
+        end
+      end
+
+      defresource DefaultPolymorphicUpdatePost do
+        postgres do
+          table "default_polymorphic_update_posts"
+          repo(AshPostgres.TestRepo)
+        end
+
+        attributes do
+          uuid_primary_key(:id)
+        end
+
+        actions do
+          defaults([:create, :read, :update, :destroy])
+        end
+
+        relationships do
+          has_many(:comments, DefaultPolymorphicUpdateComment,
+            public?: true,
+            destination_attribute: :resource_id,
+            relationship_context: %{
+              data_layer: %{table: "default_polymorphic_update_comments"}
+            }
+          )
+        end
+      end
+
+      defmodule DefaultPolymorphicUpdateDomain do
+        use Ash.Domain
+
+        resources do
+          resource(DefaultPolymorphicUpdatePost)
+          resource(DefaultPolymorphicUpdateComment)
+        end
+      end
+
+      AshPostgres.MigrationGenerator.generate(DefaultPolymorphicUpdateDomain,
+        snapshot_path: Path.join(snapshot_path, "default_polymorphic_update"),
+        migration_path: Path.join(migration_path, "default_polymorphic_update"),
+        quiet: true,
+        format: false,
+        auto_name: true
+      )
+
+      assert [file] =
+               Path.wildcard(
+                 "#{migration_path}/default_polymorphic_update/**/*_migrate_resources*.exs"
+               )
+               |> Enum.reject(&String.contains?(&1, "extensions"))
+
+      migration = File.read!(file)
+
+      assert migration =~
+               ~r/references\(:default_polymorphic_update_posts\b[^)]*name: "default_polymorphic_update_comments_resource_id_fkey"/
+
+      refute migration =~
+               ~r/references\(:default_polymorphic_update_posts\b[^)]*on_update:/
     end
 
     ##########################
@@ -7360,8 +7433,78 @@ defmodule AshPostgres.MigrationGeneratorTest do
       end
     end
 
-    test "Omitting both polymorphic_name and name in relationship_context retains default behavior." do
-      assert(true)
+    test "Omitting both polymorphic_name and name in relationship_context retains default behavior.", %{
+      snapshot_path: snapshot_path,
+      migration_path: migration_path
+    } do
+      defresource DefaultPolymorphicNameComment do
+        postgres do
+          polymorphic?(true)
+          repo(AshPostgres.TestRepo)
+        end
+
+        attributes do
+          uuid_primary_key(:id)
+          attribute(:resource_id, :uuid, public?: true)
+        end
+
+        actions do
+          defaults([:create, :read, :update, :destroy])
+        end
+      end
+
+      defresource DefaultPolymorphicNamePost do
+        postgres do
+          table "default_polymorphic_name_posts"
+          repo(AshPostgres.TestRepo)
+        end
+
+        attributes do
+          uuid_primary_key(:id)
+        end
+
+        actions do
+          defaults([:create, :read, :update, :destroy])
+        end
+
+        relationships do
+          has_many(:comments, DefaultPolymorphicNameComment,
+            public?: true,
+            destination_attribute: :resource_id,
+            relationship_context: %{
+              data_layer: %{table: "default_polymorphic_name_comments"}
+            }
+          )
+        end
+      end
+
+      defmodule DefaultPolymorphicNameDomain do
+        use Ash.Domain
+
+        resources do
+          resource(DefaultPolymorphicNamePost)
+          resource(DefaultPolymorphicNameComment)
+        end
+      end
+
+      AshPostgres.MigrationGenerator.generate(DefaultPolymorphicNameDomain,
+        snapshot_path: Path.join(snapshot_path, "default_polymorphic_name"),
+        migration_path: Path.join(migration_path, "default_polymorphic_name"),
+        quiet: true,
+        format: false,
+        auto_name: true
+      )
+
+      assert [file] =
+               Path.wildcard(
+                 "#{migration_path}/default_polymorphic_name/**/*_migrate_resources*.exs"
+               )
+               |> Enum.reject(&String.contains?(&1, "extensions"))
+
+      migration = File.read!(file)
+
+      assert migration =~
+               ~r/references\(:default_polymorphic_name_posts\b[^)]*name: "default_polymorphic_name_comments_resource_id_fkey"/
     end
   end
 
