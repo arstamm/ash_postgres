@@ -3867,13 +3867,28 @@ defmodule AshPostgres.MigrationGenerator do
   end
 
   defp polymorphic_on_update(relationship) do
-    get_in(relationship.context, [:data_layer, :references, :on_update]) ||
-      AshPostgres.DataLayer.Info.polymorphic_on_update(relationship.source)
+    relationship_context_on_update =
+      get_in(relationship.context, [:data_layer, :references, :on_update])
+
+    legacy_on_update = AshPostgres.DataLayer.Info.polymorphic_on_update(relationship.source)
+
+    if relationship_context_on_update && legacy_on_update do
+      raise "Conflicting configurations for references: both relationship_context references on_update and polymorphic_on_update are configured"
+    end
+
+    relationship_context_on_update || legacy_on_update
   end
 
   defp polymorphic_name(relationship, destination_attribute_source) do
-    get_in(relationship.context, [:data_layer, :references, :name]) ||
-      AshPostgres.DataLayer.Info.polymorphic_name(relationship.source) ||
+    relationship_context_name = get_in(relationship.context, [:data_layer, :references, :name])
+
+    legacy_name = AshPostgres.DataLayer.Info.polymorphic_name(relationship.source)
+
+    if relationship_context_name && legacy_name do
+      raise "Conflicting configurations for references: both relationship_context references name and polymorphic_name are configured"
+    end
+
+    relationship_context_name || legacy_name ||
       "#{relationship.context[:data_layer][:table]}_#{destination_attribute_source}_fkey"
   end
 

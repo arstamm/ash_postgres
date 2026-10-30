@@ -6465,8 +6465,175 @@ defmodule AshPostgres.MigrationGeneratorTest do
                ~r/references\(:relationship_context_polymorphic_update_posts\b[^)]*on_update: :update_all/
     end
 
-    test "Using both legacy and new configuration for configuring polymorphic_on_update results in rejection." do
-      assert(true)
+    test "Configuring polymorphic_on_update through both legacy and relationship-context options on one resource results in rejection.",
+         %{
+           snapshot_path: snapshot_path,
+           migration_path: migration_path
+         } do
+      defresource LegacyAndNewPolymorphicUpdateComment do
+        postgres do
+          polymorphic?(true)
+          repo(AshPostgres.TestRepo)
+        end
+
+        attributes do
+          uuid_primary_key(:id)
+          attribute(:resource_id, :uuid, public?: true)
+        end
+
+        actions do
+          defaults([:create, :read, :update, :destroy])
+        end
+      end
+
+      defresource LegacyAndNewPolymorphicUpdatePost do
+        postgres do
+          table "legacy_and_new_polymorphic_update_posts"
+          repo(AshPostgres.TestRepo)
+
+          references do
+            polymorphic_on_update(:update)
+          end
+        end
+
+        attributes do
+          uuid_primary_key(:id)
+        end
+
+        actions do
+          defaults([:create, :read, :update, :destroy])
+        end
+
+        relationships do
+          has_many(:comments, LegacyAndNewPolymorphicUpdateComment,
+            public?: true,
+            destination_attribute: :resource_id,
+            relationship_context: %{
+              data_layer: %{
+                table: "legacy_and_new_polymorphic_update_comments",
+                references: %{on_update: :restrict}
+              }
+            }
+          )
+        end
+      end
+
+      defmodule LegacyAndNewPolymorphicUpdateDomain do
+        use Ash.Domain
+
+        resources do
+          resource(LegacyAndNewPolymorphicUpdatePost)
+          resource(LegacyAndNewPolymorphicUpdateComment)
+        end
+      end
+
+      assert_raise RuntimeError, ~r/Conflicting configurations for references/, fn ->
+        AshPostgres.MigrationGenerator.generate(LegacyAndNewPolymorphicUpdateDomain,
+          snapshot_path: Path.join(snapshot_path, "legacy_and_new_polymorphic_update"),
+          migration_path: Path.join(migration_path, "legacy_and_new_polymorphic_update"),
+          quiet: true,
+          format: false,
+          auto_name: true
+        )
+      end
+    end
+
+    test "Conflicting polymorphic_on_update configurations across resources result in rejection.", %{
+      snapshot_path: snapshot_path,
+      migration_path: migration_path
+    } do
+      defresource CrossResourcePolymorphicUpdateComment do
+        postgres do
+          polymorphic?(true)
+          repo(AshPostgres.TestRepo)
+        end
+
+        attributes do
+          uuid_primary_key(:id)
+          attribute(:resource_id, :uuid, public?: true)
+        end
+
+        actions do
+          defaults([:create, :read, :update, :destroy])
+        end
+      end
+
+      defresource CrossResourceLegacyPolymorphicUpdatePost do
+        postgres do
+          table "cross_resource_polymorphic_update_posts"
+          repo(AshPostgres.TestRepo)
+
+          references do
+            polymorphic_on_update(:update)
+          end
+        end
+
+        attributes do
+          uuid_primary_key(:id)
+        end
+
+        actions do
+          defaults([:create, :read, :update, :destroy])
+        end
+
+        relationships do
+          has_many(:comments, CrossResourcePolymorphicUpdateComment,
+            public?: true,
+            destination_attribute: :resource_id,
+            relationship_context: %{
+              data_layer: %{table: "cross_resource_polymorphic_update_comments"}
+            }
+          )
+        end
+      end
+
+      defresource CrossResourceRelationshipContextPolymorphicUpdatePost do
+        postgres do
+          table "cross_resource_polymorphic_update_posts"
+          repo(AshPostgres.TestRepo)
+        end
+
+        attributes do
+          uuid_primary_key(:id)
+        end
+
+        actions do
+          defaults([:create, :read, :update, :destroy])
+        end
+
+        relationships do
+          has_many(:comments, CrossResourcePolymorphicUpdateComment,
+            public?: true,
+            destination_attribute: :resource_id,
+            relationship_context: %{
+              data_layer: %{
+                table: "cross_resource_polymorphic_update_comments",
+                references: %{on_update: :restrict}
+              }
+            }
+          )
+        end
+      end
+
+      defmodule CrossResourcePolymorphicUpdateDomain do
+        use Ash.Domain
+
+        resources do
+          resource(CrossResourceLegacyPolymorphicUpdatePost)
+          resource(CrossResourceRelationshipContextPolymorphicUpdatePost)
+          resource(CrossResourcePolymorphicUpdateComment)
+        end
+      end
+
+      assert_raise RuntimeError, ~r/Conflicting configurations for references/, fn ->
+        AshPostgres.MigrationGenerator.generate(CrossResourcePolymorphicUpdateDomain,
+          snapshot_path: Path.join(snapshot_path, "cross_resource_polymorphic_update"),
+          migration_path: Path.join(migration_path, "cross_resource_polymorphic_update"),
+          quiet: true,
+          format: false,
+          auto_name: true
+        )
+      end
     end
 
     test "Multiple on_update configurations within relationship_context result in rejection.", %{
@@ -6852,8 +7019,175 @@ defmodule AshPostgres.MigrationGeneratorTest do
                ~r/references\(:relationship_context_polymorphic_name_posts\b[^)]*name: "relationship_context_polymorphic_name_fkey"/
     end
 
-    test "Using both legacy and new configuration for configuring polymorphic_name results in rejection." do
-      assert(true)
+    test "Configuring polymorphic_name through both legacy and relationship-context options on one resource results in rejection.",
+         %{
+           snapshot_path: snapshot_path,
+           migration_path: migration_path
+         } do
+      defresource LegacyAndNewPolymorphicNameComment do
+        postgres do
+          polymorphic?(true)
+          repo(AshPostgres.TestRepo)
+        end
+
+        attributes do
+          uuid_primary_key(:id)
+          attribute(:resource_id, :uuid, public?: true)
+        end
+
+        actions do
+          defaults([:create, :read, :update, :destroy])
+        end
+      end
+
+      defresource LegacyAndNewPolymorphicNamePost do
+        postgres do
+          table "legacy_and_new_polymorphic_name_posts"
+          repo(AshPostgres.TestRepo)
+
+          references do
+            polymorphic_name("legacy_polymorphic_name_fkey")
+          end
+        end
+
+        attributes do
+          uuid_primary_key(:id)
+        end
+
+        actions do
+          defaults([:create, :read, :update, :destroy])
+        end
+
+        relationships do
+          has_many(:comments, LegacyAndNewPolymorphicNameComment,
+            public?: true,
+            destination_attribute: :resource_id,
+            relationship_context: %{
+              data_layer: %{
+                table: "legacy_and_new_polymorphic_name_comments",
+                references: %{name: "relationship_context_polymorphic_name_fkey"}
+              }
+            }
+          )
+        end
+      end
+
+      defmodule LegacyAndNewPolymorphicNameDomain do
+        use Ash.Domain
+
+        resources do
+          resource(LegacyAndNewPolymorphicNamePost)
+          resource(LegacyAndNewPolymorphicNameComment)
+        end
+      end
+
+      assert_raise RuntimeError, ~r/Conflicting configurations for references/, fn ->
+        AshPostgres.MigrationGenerator.generate(LegacyAndNewPolymorphicNameDomain,
+          snapshot_path: Path.join(snapshot_path, "legacy_and_new_polymorphic_name"),
+          migration_path: Path.join(migration_path, "legacy_and_new_polymorphic_name"),
+          quiet: true,
+          format: false,
+          auto_name: true
+        )
+      end
+    end
+
+    test "Conflicting polymorphic_name configurations across resources result in rejection.", %{
+      snapshot_path: snapshot_path,
+      migration_path: migration_path
+    } do
+      defresource CrossResourcePolymorphicNameComment do
+        postgres do
+          polymorphic?(true)
+          repo(AshPostgres.TestRepo)
+        end
+
+        attributes do
+          uuid_primary_key(:id)
+          attribute(:resource_id, :uuid, public?: true)
+        end
+
+        actions do
+          defaults([:create, :read, :update, :destroy])
+        end
+      end
+
+      defresource CrossResourceLegacyPolymorphicNamePost do
+        postgres do
+          table "cross_resource_polymorphic_name_posts"
+          repo(AshPostgres.TestRepo)
+
+          references do
+            polymorphic_name("legacy_polymorphic_name_fkey")
+          end
+        end
+
+        attributes do
+          uuid_primary_key(:id)
+        end
+
+        actions do
+          defaults([:create, :read, :update, :destroy])
+        end
+
+        relationships do
+          has_many(:comments, CrossResourcePolymorphicNameComment,
+            public?: true,
+            destination_attribute: :resource_id,
+            relationship_context: %{
+              data_layer: %{table: "cross_resource_polymorphic_name_comments"}
+            }
+          )
+        end
+      end
+
+      defresource CrossResourceRelationshipContextPolymorphicNamePost do
+        postgres do
+          table "cross_resource_polymorphic_name_posts"
+          repo(AshPostgres.TestRepo)
+        end
+
+        attributes do
+          uuid_primary_key(:id)
+        end
+
+        actions do
+          defaults([:create, :read, :update, :destroy])
+        end
+
+        relationships do
+          has_many(:comments, CrossResourcePolymorphicNameComment,
+            public?: true,
+            destination_attribute: :resource_id,
+            relationship_context: %{
+              data_layer: %{
+                table: "cross_resource_polymorphic_name_comments",
+                references: %{name: "relationship_context_polymorphic_name_fkey"}
+              }
+            }
+          )
+        end
+      end
+
+      defmodule CrossResourcePolymorphicNameDomain do
+        use Ash.Domain
+
+        resources do
+          resource(CrossResourceLegacyPolymorphicNamePost)
+          resource(CrossResourceRelationshipContextPolymorphicNamePost)
+          resource(CrossResourcePolymorphicNameComment)
+        end
+      end
+
+      assert_raise RuntimeError, ~r/Conflicting configurations for references/, fn ->
+        AshPostgres.MigrationGenerator.generate(CrossResourcePolymorphicNameDomain,
+          snapshot_path: Path.join(snapshot_path, "cross_resource_polymorphic_name"),
+          migration_path: Path.join(migration_path, "cross_resource_polymorphic_name"),
+          quiet: true,
+          format: false,
+          auto_name: true
+        )
+      end
     end
 
     test "Multiple name configurations within relationship_context result in rejection.", %{
