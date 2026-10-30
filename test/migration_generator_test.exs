@@ -6179,8 +6179,81 @@ defmodule AshPostgres.MigrationGeneratorTest do
       end
     end
 
-    test "Omitting both polymorphic_on_delete and on_delete in relationship_context retains default behavior." do
-      assert(true)
+    test "Omitting both polymorphic_on_delete and on_delete in relationship_context retains default behavior.", %{
+      snapshot_path: snapshot_path,
+      migration_path: migration_path
+    } do
+      defresource DefaultPolymorphicDeleteComment do
+        postgres do
+          polymorphic?(true)
+          repo(AshPostgres.TestRepo)
+        end
+
+        attributes do
+          uuid_primary_key(:id)
+          attribute(:resource_id, :uuid, public?: true)
+        end
+
+        actions do
+          defaults([:create, :read, :update, :destroy])
+        end
+      end
+
+      defresource DefaultPolymorphicDeletePost do
+        postgres do
+          table "default_polymorphic_delete_posts"
+          repo(AshPostgres.TestRepo)
+        end
+
+        attributes do
+          uuid_primary_key(:id)
+        end
+
+        actions do
+          defaults([:create, :read, :update, :destroy])
+        end
+
+        relationships do
+          has_many(:comments, DefaultPolymorphicDeleteComment,
+            public?: true,
+            destination_attribute: :resource_id,
+            relationship_context: %{
+              data_layer: %{table: "default_polymorphic_delete_comments"}
+            }
+          )
+        end
+      end
+
+      defmodule DefaultPolymorphicDeleteDomain do
+        use Ash.Domain
+
+        resources do
+          resource(DefaultPolymorphicDeletePost)
+          resource(DefaultPolymorphicDeleteComment)
+        end
+      end
+
+      AshPostgres.MigrationGenerator.generate(DefaultPolymorphicDeleteDomain,
+        snapshot_path: Path.join(snapshot_path, "default_polymorphic_delete"),
+        migration_path: Path.join(migration_path, "default_polymorphic_delete"),
+        quiet: true,
+        format: false,
+        auto_name: true
+      )
+
+      assert [file] =
+               Path.wildcard(
+                 "#{migration_path}/default_polymorphic_delete/**/*_migrate_resources*.exs"
+               )
+               |> Enum.reject(&String.contains?(&1, "extensions"))
+
+      migration = File.read!(file)
+
+      assert migration =~
+               ~r/references\(:default_polymorphic_delete_posts\b[^)]*name: "default_polymorphic_delete_comments_resource_id_fkey"/
+
+      refute migration =~
+               ~r/references\(:default_polymorphic_delete_posts\b[^)]*on_delete:/
     end
 
     ###############################
